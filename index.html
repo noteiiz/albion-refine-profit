@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albion Refine Profit – Asia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+<script src="assets/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">⚒</span>
+    <div>
+      <h1>Albion Refine Profit</h1>
+      <p class="sub">เซิร์ฟ Asia (East) · ราคาจาก Albion Online Data Project</p>
+    </div>
+  </div>
+  <div class="status">
+    <span id="priceStatus">กำลังโหลดราคา…</span>
+    <button id="btnRefresh" class="btn small">ดึงราคาล่าสุด</button>
+  </div>
+</header>
+
+<div id="dailyBanner" class="banner danger hidden">
+  <span class="dot"></span>
+  <span>ยังไม่ได้ใส่ <b>Daily bonus ของวันนี้</b> · ต้องใส่ก่อนจึงจะคำนวณได้</span>
+  <button class="btn small" data-goto="settings">ใส่ตอนนี้</button>
+</div>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="scan">ภาพรวมกำไร</button>
+  <button class="tab" data-tab="detail">คำนวณรายไอเทม</button>
+  <button class="tab" data-tab="prices">ราคา & กราฟ</button>
+  <button class="tab" data-tab="settings">ตั้งค่าผู้เล่น <span id="settingsDot" class="dot hidden"></span></button>
+</nav>
+
+<main>
+  <!-- SCAN -->
+  <section id="tab-scan" class="panel active">
+    <div class="card controls">
+      <label>วัตถุดิบ
+        <select id="scanType"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>Tier
+        <select id="scanTier"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>Enchant
+        <select id="scanEnch"><option value="">ทั้งหมด</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+      </label>
+      <label>ซื้อวัตถุดิบแบบ
+        <select id="buyMode"><option value="instant">ซื้อทันที (Sell order ต่ำสุด)</option><option value="order">ตั้ง Buy order (+2.5%)</option></select>
+      </label>
+      <label>ขายแบบ
+        <select id="sellMode"><option value="order">ตั้ง Sell order (fee 2.5% + ภาษี)</option><option value="instant">ขายทันที (Buy order สูงสุด)</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="useFocus"> ใช้ Focus</label>
+      <label class="check"><input type="checkbox" id="sameCityOnly"> ซื้อ-Refine-ขาย เมืองเดียว (ไม่ขนของ)</label>
+    </div>
+    <div id="scanGate"></div>
+    <div class="card">
+      <div class="table-wrap">
+        <table id="scanTable" class="data">
+          <thead><tr>
+            <th>ไอเทม</th><th>Refine ที่</th><th>RRR</th><th>ต้นทุน/ชิ้น</th><th>ขายที่</th><th>ได้สุทธิ/ชิ้น</th><th>กำไร/ชิ้น</th><th>%</th><th>ราคาเก่าสุด</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">คลิกแถวเพื่อดูรายละเอียดว่าซื้ออะไรจากเมืองไหน และดูกราฟราคา · ราคาที่เก่ากว่า <span class="maxAge"></span> ชม. จะไม่นำมาคำนวณ</p>
+    </div>
+  </section>
+
+  <!-- DETAIL -->
+  <section id="tab-detail" class="panel">
+    <div class="card controls">
+      <label>ไอเทม
+        <select id="detItem"></select>
+      </label>
+      <label>จำนวนที่จะ Refine (ชิ้น)
+        <input type="number" id="detQty" min="1" value="100">
+      </label>
+      <label>Refine ที่เมือง
+        <select id="detCity"></select>
+      </label>
+      <label>Focus ต่อชิ้น (ปล่อยว่าง = ประมาณจาก spec)
+        <input type="number" id="detFocus" min="0" placeholder="อัตโนมัติ">
+      </label>
+    </div>
+    <div id="detGate"></div>
+    <div id="detOut"></div>
+    <div class="card">
+      <h3>กราฟราคาเฉลี่ยรายวัน · <span id="detChartTitle"></span></h3>
+      <div class="chart-box"><canvas id="detChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- PRICES -->
+  <section id="tab-prices" class="panel">
+    <div class="card controls">
+      <label>ค้นหาไอเทม
+        <input type="search" id="priceSearch" placeholder="เช่น T5 Planks, Leather, T6_ORE" list="itemList">
+        <datalist id="itemList"></datalist>
+      </label>
+      <label>ช่วงเวลา
+        <select id="priceRange"><option value="7">7 วัน</option><option value="14">14 วัน</option><option value="30" selected>30 วัน</option></select>
+      </label>
+    </div>
+    <div class="card">
+      <h3 id="priceTitle">เลือกไอเทม</h3>
+      <div class="table-wrap"><table id="priceTable" class="data"><thead><tr><th>เมือง</th><th>Sell ต่ำสุด</th><th>Buy สูงสุด</th><th>อัปเดต</th><th>ขายได้/วัน (เฉลี่ย 7 วัน)</th></tr></thead><tbody></tbody></table></div>
+      <div class="chart-box"><canvas id="priceChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="panel">
+    <div class="card" id="dailyCard">
+      <h3>Daily bonus ของวันนี้ <span class="req">*จำเป็น</span></h3>
+      <p class="hint">วันเกมของเซิร์ฟ Asia เริ่มเวลา <b id="resetLocal"></b> (เวลาเครื่องคุณ) · วันนี้คือรอบ <b id="dayKey"></b> · ข้อมูลเก็บย้อนหลังแค่ 7 วัน</p>
+      <div id="dailyForm"></div>
+      <div class="row">
+        <button class="btn" id="btnSaveDaily">บันทึกโบนัสวันนี้</button>
+        <span id="dailySaved" class="hint"></span>
+      </div>
+      <details class="hist"><summary>ประวัติ 7 วัน</summary><div id="dailyHistory"></div></details>
+    </div>
+
+    <div class="card">
+      <h3>บัญชี</h3>
+      <label class="check"><input type="checkbox" id="setPremium"> เป็น Premium (ภาษีขาย <span id="taxP"></span> แทน <span id="taxN"></span>)</label>
+    </div>
+
+    <div class="card">
+      <h3>ค่าใช้สถานี Refine <span class="req">*ต้องใส่ก่อนคำนวณ</span></h3>
+      <p class="hint">ใส่ตัวเลขค่าธรรมเนียมที่เห็นที่สถานี (silver ต่อ 100 Nutrition) ของแต่ละเมืองที่คุณใช้ เมืองที่ยังไม่ใส่จะคำนวณไม่ได้</p>
+      <div id="stationFees" class="grid-fees"></div>
+    </div>
+
+    <div class="card">
+      <h3>Spec การ Refine</h3>
+      <p class="hint">ใช้ประมาณ Focus ที่ใช้ต่อชิ้น (spec ไม่มีผลกับ RRR) · เลเวล 0–100</p>
+      <div id="specForm"></div>
+    </div>
+
+    <div class="card">
+      <h3>ข้อมูลเก็บที่ไหน</h3>
+      <p class="hint">การตั้งค่าทั้งหมดเก็บใน localStorage ของเบราว์เซอร์นี้เท่านั้น ไม่ถูกส่งไปที่ไหน</p>
+      <button class="btn ghost" id="btnReset">ล้างการตั้งค่าทั้งหมด</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  ไม่ได้มีส่วนเกี่ยวข้องกับ Sandbox Interactive · ข้อมูลราคามาจากผู้เล่นที่รัน Albion Data Client จึงอาจไม่ครบหรือไม่ตรงทุกเวลา · ไอคอนไอเทมเป็นลิขสิทธิ์ของ Sandbox Interactive GmbH
+</footer>
+</body>
+</html>
