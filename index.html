@@ -35,6 +35,7 @@
   <button class="tab active" data-tab="scan">ภาพรวมกำไร</button>
   <button class="tab" data-tab="detail">คำนวณรายไอเทม</button>
   <button class="tab" data-tab="prices">ราคา & กราฟ</button>
+  <button class="tab" data-tab="stale">อัปเดตราคา <span id="staleCount" class="pill hidden"></span></button>
   <button class="tab" data-tab="settings">ตั้งค่าผู้เล่น <span id="settingsDot" class="dot hidden"></span></button>
 </nav>
 
@@ -113,6 +114,38 @@
       <h3 id="priceTitle">เลือกไอเทม</h3>
       <div class="table-wrap"><table id="priceTable" class="data"><thead><tr><th>เมือง</th><th>Sell ต่ำสุด</th><th>Buy สูงสุด</th><th>อัปเดต</th><th>ขายได้/วัน (เฉลี่ย 7 วัน)</th></tr></thead><tbody></tbody></table></div>
       <div class="chart-box"><canvas id="priceChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- STALE / UPDATE LIST -->
+  <section id="tab-stale" class="panel">
+    <div class="card controls">
+      <label>ไม่ได้อัปเดตเกิน
+        <select id="staleAge">
+          <option value="10">10 นาที</option>
+          <option value="30" selected>30 นาที</option>
+          <option value="60">1 ชั่วโมง</option>
+          <option value="never">ยังไม่มีข้อมูลเลย</option>
+        </select>
+      </label>
+      <label>เมือง
+        <select id="staleCity"><option value="">ทุกเมือง</option></select>
+      </label>
+      <label>ประเภท
+        <select id="staleKind"><option value="">ทั้งหมด</option><option value="raw">วัตถุดิบดิบ</option><option value="refined">วัตถุดิบ Refine แล้ว</option></select>
+      </label>
+      <label>วัตถุดิบ
+        <select id="staleType"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>Tier
+        <select id="staleTier"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="staleAuto" checked> ดึงราคาใหม่อัตโนมัติทุก 1 นาที</label>
+    </div>
+    <div id="staleSummary" class="city-chips"></div>
+    <div class="card">
+      <p class="hint">วิธีใช้: เปิด Albion Data Client ไว้ แล้วเดินไปตลาดเมืองนั้นในเกม ค้นชื่อไอเทมตามรายการ (คลิกชื่อเพื่อคัดลอก) เปิดดูทีละตัว ไอเทมที่อัปเดตแล้วจะหายไปจากรายการเองภายในประมาณ 1 นาที</p>
+      <div id="staleList"></div>
     </div>
   </section>
 
