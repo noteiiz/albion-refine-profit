@@ -67,3 +67,12 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:24px}
 @media (max-width:640px){main{padding:14px}.top{padding:12px 14px}.tabs{padding:0 8px}.spec-grid{grid-template-columns:90px repeat(6,52px)}}
 .gate.warn-gate{border-color:var(--warn);background:rgba(227,163,58,.1);color:#f3dcb0}
 #dailyCard.missing{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+.pill{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center;margin-left:4px}
+.city-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 12px;font:inherit;font-size:13px;color:var(--text);cursor:pointer}
+.chip b{color:var(--gold2);margin-left:4px}
+.chip.active{border-color:var(--gold);background:rgba(217,164,65,.12)}
+.stale-city{margin-bottom:18px}
+.stale-city h4{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center}
+.copy{cursor:copy;border-bottom:1px dashed var(--muted)}
+.copied{color:var(--good)}

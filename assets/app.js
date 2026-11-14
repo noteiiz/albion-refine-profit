@@ -72,28 +72,43 @@ async function loadStatic() {
       mergeRows([{ item_id: id, city, quality: 1, sell_price_min: c.s, sell_price_min_date: c.sd, buy_price_max: c.b, buy_price_max_date: c.bd }]);
   } catch { /* first deploy: no file yet */ }
 }
+let liveBusy = false, throttledUntil = 0;
 async function loadLive() {
+  if (liveBusy) return;
+  if (Date.now() < throttledUntil) { setStatus(); return; }
+  liveBusy = true;
   const ids = allIds(), locs = encodeURIComponent(S.cfg.cities.join(','));
   setStatus('กำลังดึงราคาล่าสุด…');
-  let ok = 0, fail = 0;
-  for (let i = 0; i < ids.length; i += 60) {
-    const chunk = ids.slice(i, i + 60).map(encodeURIComponent).join(',');
+  let ok = 0, fail = 0, throttled = false;
+  // Few large requests: the free API throttles per IP, so keep the request count low.
+  for (let i = 0; i < ids.length; i += 125) {
+    const chunk = ids.slice(i, i + 125).map(encodeURIComponent).join(',');
     try {
-      const r = await fetch(`${S.cfg.apiBase}/api/v2/stats/prices/${chunk}.json?locations=${locs}&qualities=1`);
+      const r = await fetch(`${S.cfg.apiBase}/api/v2/stats/prices/${chunk}.json?locations=${locs}&qualities=1`, { cache: 'no-store' });
+      if (r.status === 429) { throttled = true; break; }
       if (!r.ok) throw new Error(r.status);
       mergeRows(await r.json()); ok++;
     } catch { fail++; }
   }
-  if (ok) S.liveUpdated = new Date().toISOString();
+  liveBusy = false;
+  if (throttled) throttledUntil = Date.now() + 2 * 60e3;
+  if (ok && !fail && !throttled) S.liveUpdated = new Date().toISOString();
+  S.liveResult = throttled ? 'throttled' : fail ? 'partial' : 'ok';
+  S.liveCheckedAt = new Date().toISOString();
   setStatus();
   renderAll();
-  if (fail && !ok) setStatus('ดึงราคาสดไม่ได้ ใช้ราคาที่เก็บไว้แทน');
 }
 function setStatus(msg) {
   const el = $('#priceStatus');
   if (msg) { el.textContent = msg; return; }
   const t = S.liveUpdated || S.staticUpdated;
-  el.textContent = t ? `ราคาอัปเดต ${new Date(t).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}` : 'ยังไม่มีข้อมูลราคา';
+  const tf = d => new Date(d).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  let txt = t ? `ดึงราคาสำเร็จล่าสุด ${tf(t)}` : 'ยังไม่มีข้อมูลราคา';
+  if (S.liveResult === 'throttled' || Date.now() < throttledUntil)
+    txt += ' · ⚠ API จำกัดจำนวนครั้ง (ส่งคำขอถี่เกิน) รอ ~2 นาทีแล้วระบบจะลองใหม่เอง';
+  else if (S.liveResult === 'partial') txt += ' · ⚠ ดึงได้ไม่ครบ ลองกดใหม่อีกครั้ง';
+  el.textContent = txt;
+  el.classList.toggle('warn', S.liveResult === 'throttled' || S.liveResult === 'partial');
 }
 
 function pickPrice(id, city, side, mode, tax) {
@@ -336,6 +351,54 @@ async function renderPrices() {
   drawHistory(id, 'priceChart', +$('#priceRange').value);
 }
 
+
+/* ---------- render: stale / update list ---------- */
+const RAW_CAT = { WOOD: 'wood', ORE: 'ore', FIBER: 'fiber', HIDE: 'hide', ROCK: 'rock' };
+function itemMeta(id) {
+  const r = S.rec.refined[id];
+  if (r) return { kind: 'refined', cat: r.cat, tier: r.tier, ench: r.ench, name: r.name };
+  const w = S.rec.raw[id]; const m = id.match(/^T\d_([A-Z]+)/);
+  return { kind: 'raw', cat: RAW_CAT[m && m[1]], tier: w.tier, ench: w.ench || 0, name: w.name };
+}
+function priceAge(id, city) {
+  const c = S.prices[id] && S.prices[id][city];
+  return c ? Math.min(ageH(c.sd), ageH(c.bd)) : Infinity;
+}
+let staleCityPick = '';
+function staleRows() {
+  const th = $('#staleAge').value, kind = $('#staleKind').value, ty = $('#staleType').value, ti = $('#staleTier').value;
+  const out = [];
+  for (const id of allIds()) {
+    const m = itemMeta(id);
+    if (kind && m.kind !== kind) continue; if (ty && m.cat !== ty) continue; if (ti && m.tier !== +ti) continue;
+    for (const city of S.cfg.cities) {
+      const a = priceAge(id, city);
+      const hit = th === 'never' ? !isFinite(a) : a * 60 > +th;
+      if (hit) out.push({ id, city, a, m });
+    }
+  }
+  return out;
+}
+function renderStale() {
+  const rows = staleRows();
+  const pill = $('#staleCount');
+  pill.textContent = rows.length > 999 ? '999+' : rows.length; pill.classList.toggle('hidden', !rows.length);
+  if (!$('#tab-stale').classList.contains('active')) return;
+  const byCity = {}; for (const r of rows) (byCity[r.city] ||= []).push(r);
+  const citySel = $('#staleCity').value || staleCityPick;
+  $('#staleSummary').innerHTML = `<button class="chip ${!citySel ? 'active' : ''}" data-city="">ทุกเมือง<b>${rows.length}</b></button>` +
+    S.cfg.cities.map(c => `<button class="chip ${citySel === c ? 'active' : ''}" data-city="${esc(c)}">${esc(c)}<b>${(byCity[c] || []).length}</b></button>`).join('');
+  const cities = citySel ? [citySel] : S.cfg.cities;
+  const html = cities.filter(c => byCity[c]).map(c => {
+    const list = byCity[c].sort((x, y) => x.m.cat.localeCompare(y.m.cat) || x.m.kind.localeCompare(y.m.kind) || x.m.tier - y.m.tier || x.m.ench - y.m.ench);
+    return `<div class="stale-city"><h4>${esc(c)} <span class="pill">${list.length}</span></h4>
+      <div class="table-wrap"><table class="data"><thead><tr><th>ไอเทม</th><th>ชื่อสำหรับค้นในเกม (คลิกเพื่อคัดลอก)</th><th>อัปเดตล่าสุด</th><th class="n">Sell ต่ำสุด</th><th class="n">Buy สูงสุด</th></tr></thead><tbody>
+      ${list.map(r => { const p = (S.prices[r.id] || {})[c] || {}; return `<tr><td>${itemCell(r.id)}</td><td><span class="copy" data-copy="${esc(r.m.name || r.id)}">${esc(r.m.name || r.id)}</span></td><td class="${isFinite(r.a) ? 'warn' : 'neg'}">${isFinite(r.a) ? ageTxt(r.a) + 'ก่อน' : 'ไม่มีข้อมูล'}</td><td class="n">${p.s ? fmt(p.s) : '–'}</td><td class="n">${p.b ? fmt(p.b) : '–'}</td></tr>`; }).join('')}
+      </tbody></table></div></div>`;
+  }).join('');
+  $('#staleList').innerHTML = html || '<p class="pos">ไม่มีไอเทมที่ต้องอัปเดตตามเงื่อนไขนี้ 🎉</p>';
+}
+
 /* ---------- render: settings ---------- */
 function renderSettings() {
   const s = settings(), m = S.cfg.market;
@@ -383,11 +446,13 @@ function goto(tab) {
   if (tab === 'detail') renderDetail();
   if (tab === 'settings') renderSettings();
   if (tab === 'scan') renderScan();
+  if (tab === 'stale') renderStale();
 }
 function renderAll() {
   refreshDailyIndicators();
   const active = ($('.tab.active') || {}).dataset?.tab || 'scan';
   if (active === 'scan') renderScan(); else if (active === 'detail') renderDetail(); else if (active === 'prices') renderPrices();
+  renderStale();
 }
 function fillSelects() {
   $('#scanType').innerHTML += Object.entries(CAT_LABEL).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
@@ -396,6 +461,9 @@ function fillSelects() {
   $('#detItem').innerHTML = ids.map(id => `<option value="${esc(id)}">${esc(itemLabel(id))}</option>`).join('');
   $('#detCity').innerHTML = `<option value="best">เมืองที่กำไรดีที่สุด</option>` + S.cfg.cities.map(c => `<option>${esc(c)}</option>`).join('');
   $('#itemList').innerHTML = allIds().map(id => `<option value="${esc(itemLabel(id))}">`).join('');
+  $('#staleCity').innerHTML += S.cfg.cities.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#staleType').innerHTML += Object.entries(CAT_LABEL).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+  $('#staleTier').innerHTML += [2, 3, 4, 5, 6, 7, 8].map(t => `<option value="${t}">T${t}</option>`).join('');
   $$('.maxAge').forEach(e => e.textContent = S.cfg.maxPriceAgeHours);
   const s = settings();
   $('#buyMode').value = s.ui.buyMode; $('#sellMode').value = s.ui.sellMode;
@@ -405,6 +473,8 @@ function bind() {
   document.addEventListener('click', e => {
     const g = e.target.closest('[data-goto]'); if (g) { goto(g.dataset.goto); return; }
     const t = e.target.closest('.tab'); if (t) { goto(t.dataset.tab); return; }
+    const chip = e.target.closest('#staleSummary .chip'); if (chip) { staleCityPick = chip.dataset.city; $('#staleCity').value = chip.dataset.city; renderStale(); return; }
+    const cp = e.target.closest('[data-copy]'); if (cp) { navigator.clipboard?.writeText(cp.dataset.copy).then(() => { cp.classList.add('copied'); setTimeout(() => cp.classList.remove('copied'), 1200); }).catch(() => { }); return; }
     const row = e.target.closest('#scanTable tr.click'); if (row) { $('#detItem').value = row.dataset.id; goto('detail'); }
   });
   ['#scanType', '#scanTier', '#scanEnch'].forEach(s => $(s).addEventListener('change', renderScan));
@@ -414,6 +484,10 @@ function bind() {
   }));
   ['#detItem', '#detQty', '#detCity', '#detFocus'].forEach(s => $(s).addEventListener('change', renderDetail));
   $('#priceSearch').addEventListener('change', renderPrices);
+  ['#staleAge', '#staleKind', '#staleType', '#staleTier'].forEach(sel => $(sel).addEventListener('change', renderStale));
+  $('#staleCity').addEventListener('change', e => { staleCityPick = e.target.value; renderStale(); });
+  setInterval(() => { if ($('#staleAuto').checked && $('#tab-stale').classList.contains('active') && !document.hidden) loadLive(); }, 60e3);
+  setInterval(renderStale, 30e3); // ages tick even without new data
   $('#priceRange').addEventListener('change', renderPrices);
   $('#btnRefresh').addEventListener('click', loadLive);
   $('#setPremium').addEventListener('change', e => { const s = settings(); s.premium = e.target.checked; saveSettings(s); });
