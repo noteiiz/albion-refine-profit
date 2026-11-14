@@ -1,0 +1,45 @@
+{
+  "_note": "ค่าทั้งหมดในไฟล์นี้แก้ได้ ถ้าเกมอัปเดตตัวเลข ให้แก้ที่นี่ที่เดียว",
+  "server": "east",
+  "apiBase": "https://east.albion-online-data.com",
+  "cities": ["Bridgewatch", "Fort Sterling", "Lymhurst", "Martlock", "Thetford", "Caerleon", "Brecilien"],
+  "refineSpecialty": {
+    "Fort Sterling": "wood",
+    "Lymhurst": "fiber",
+    "Bridgewatch": "rock",
+    "Martlock": "hide",
+    "Thetford": "ore"
+  },
+  "productionBonus": {
+    "base": 0.18,
+    "citySpecialty": 0.40,
+    "focus": 0.59
+  },
+  "market": {
+    "setupFee": 0.025,
+    "taxPremium": 0.04,
+    "taxNonPremium": 0.08
+  },
+  "stationNutritionFactor": 0.1125,
+  "resetHourUTC": 23,
+  "maxPriceAgeHours": 48,
+  "staleWarnHours": 12,
+  "outlierFactor": 2.5,
+  "dailyBonusValues": [10, 20],
+  "dailyBonusCategories": [
+    "Wood", "Ore", "Fiber", "Hide", "Rock",
+    "Swords", "Axes", "Crossbows", "Hammers", "Maces", "Knuckles",
+    "Plate Helmets", "Plate Armor", "Plate Shoes", "Spears", "Bows",
+    "Nature Staffs", "Daggers", "Quarterstaffs", "Shapeshifter Staffs",
+    "Leather Helmets", "Leather Armor", "Leather Shoes",
+    "Arcane Staffs", "Curse Staffs", "Fire Staffs", "Frost Staffs", "Holy Staffs",
+    "Cloth Helmets", "Cloth Armor", "Cloth Shoes", "Off-Hands",
+    "Tools", "Gatherer Gear", "Potions", "Food", "Bags", "Capes"
+  ],
+  "focusEstimate": {
+    "_note": "ค่าประมาณสำหรับคำนวณ Focus ที่ลดลงจาก spec: Focus = ฐาน x 0.5^(FCE/10000) ถ้าตัวเลขในเกมไม่ตรง ให้กรอก Focus จริงทับในหน้าคำนวณ",
+    "halvingFCE": 10000,
+    "perMasteryLevel": 30,
+    "perTierSpecLevel": 250
+  }
+}
